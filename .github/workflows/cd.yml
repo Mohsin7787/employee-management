@@ -1,0 +1,46 @@
+name: Django CD
+
+on:
+  workflow_run:
+    workflows: ["Django CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+
+  deploy:
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/employee-management
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Stopping old containers..."
+            docker compose down
+
+            echo "Building new Docker image..."
+            docker compose build
+
+            echo "Starting containers..."
+            docker compose up -d
+
+            echo "Running migrations..."
+            docker compose exec -T web python manage.py migrate
+
+            echo "Checking containers..."
+            docker compose ps
