@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: employee_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: employee_db
+      MYSQL_USER: employee_user
+      MYSQL_PASSWORD: employee_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "employee_user", "-pemployee_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    container_name: employee_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+    command: gunicorn employee_mgmt.wsgi:application --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
